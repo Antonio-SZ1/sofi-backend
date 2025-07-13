@@ -1,0 +1,122 @@
+services:
+  #--- Base de datos relacional ---
+  postgres-primary:
+    image: postgres:15
+    container_name: postgres-primary
+    hostname: postgres-primary
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-primary-data:/var/lib/postgresql/data
+      - ./postgres-init/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+    command: >
+      sh -c "echo 'host replication all all 0.0.0.0/0 md5' >> /var/lib/postgresql/data/pg_hba.conf && exec gosu postgres docker-entrypoint.sh postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sofipo-net
+
+  postgres-replica:
+    image: postgres:15
+    container_name: postgres-replica
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432" 
+    volumes:
+      - postgres-replica-data:/var/lib/postgresql/data
+      - ./postgres-init/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    command: ["/docker-entrypoint-initdb.d/init-db.sh"]
+    networks:
+      - sofipo-net
+
+  #--- Servicios de mensajeria, cache y documentos ---
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq/
+    networks:
+      - sofipo-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sofipo-net
+
+  couchdb:
+    image: couchdb:3.3
+    container_name: couchdb
+    hostname: couchdb
+    ports:
+      - "5984:5984" # API
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb-data:/opt/couchdb/data
+    networks:
+      - sofipo-net
+  
+  #--- Aplicaciones ---
+  backend-api:
+    build: ./backend-api
+    container_name: backend-api
+    hostname: backend-api
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres-primary
+      - postgres-replica
+      - rabbitmq
+      - redis
+      - couchdb
+    networks:
+      - sofipo-net
+
+  event-consumer:
+    build: ./event-consumer
+    container_name: event-consumer
+    hostname: event-consumer
+    env_file: .env
+    depends_on:
+      - rabbitmq
+      - couchdb
+    networks:
+      - sofipo-net
+
+volumes:
+  postgres-primary-data:
+  postgres-replica-data:
+  rabbitmq-data:
+  redis-data:
+  couchdb-data:
+
+networks:
+  sofipo-net:
+    driver: bridge
