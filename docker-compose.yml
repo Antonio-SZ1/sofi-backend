@@ -4,17 +4,19 @@ services:
     image: postgres:15
     container_name: postgres-primary
     hostname: postgres-primary
+    user: "${UID}:${GID}"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres-primary-data:/var/lib/postgresql/data
-      - ./postgres-init/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      # Montamos toda la carpeta. El entrypoint de Postgres ejecutará los .sql y .sh
+      - ./postgres-init:/docker-entrypoint-initdb.d
+      - ./pgdata/primary:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    command: >
-      sh -c "echo 'host replication all all 0.0.0.0/0 md5' >> /var/lib/postgresql/data/pg_hba.conf && exec gosu postgres docker-entrypoint.sh postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on"
+    # El comando ahora es simple, solo los argumentos para el servidor
+    command: postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -26,6 +28,7 @@ services:
   postgres-replica:
     image: postgres:15
     container_name: postgres-replica
+    user: "${UID}:${GID}"
     depends_on:
       postgres-primary:
         condition: service_healthy
@@ -33,9 +36,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5433:5432" 
+      - "5433:5432"
     volumes:
-      - postgres-replica-data:/var/lib/postgresql/data
+      - ./pgdata/replica:/var/lib/postgresql/data
       - ./postgres-init/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     command: ["/docker-entrypoint-initdb.d/init-db.sh"]
     networks:
@@ -47,8 +50,8 @@ services:
     container_name: rabbitmq
     hostname: rabbitmq
     ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
@@ -73,7 +76,7 @@ services:
     container_name: couchdb
     hostname: couchdb
     ports:
-      - "5984:5984" # API
+      - "5984:5984"
     environment:
       COUCHDB_USER: ${COUCHDB_USER}
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
@@ -81,7 +84,7 @@ services:
       - couchdb-data:/opt/couchdb/data
     networks:
       - sofipo-net
-  
+
   #--- Aplicaciones ---
   backend-api:
     build: ./backend-api
@@ -111,8 +114,6 @@ services:
       - sofipo-net
 
 volumes:
-  postgres-primary-data:
-  postgres-replica-data:
   rabbitmq-data:
   redis-data:
   couchdb-data:

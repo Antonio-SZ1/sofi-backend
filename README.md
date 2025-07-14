@@ -142,16 +142,3 @@ curl -X POST "http://localhost:8000/api/v1/loans/$LOAN_ID/payments" \
   ```
 - **RabbitMQ Management UI**: Ve a `http://localhost:15672` (user: `guest`, pass: `guest`). Podrás ver el exchange `sofipo_events_exchange` y la cola `couchdb_event_log_queue`.
 - **CouchDB Fauxton UI**: Ve a `http://localhost:5984/_utils/` (user: `admin`, pass: `password`). Busca la base de datos `business_events` para ver todos los documentos JSON generados por el consumidor.
-
-## Observabilidad (Opcional pero Recomendado)
-
-Aunque no se implementó en este `docker-compose.yml` para mantener la simplicidad, el siguiente paso sería añadir servicios como:
-- **OpenTelemetry Collector**: Para recibir trazas y métricas.
-- **Jaeger**: Para visualizar trazas distribuidas. `http://localhost:16686`
-- **Prometheus**: Para almacenar métricas. `http://localhost:9090`
-- **Grafana**: Para visualizar métricas en dashboards. `http://localhost:3000`
-
-Para integrarlos, deberías:
-1.  Añadir los servicios al `docker-compose.yml`.
-2.  Instalar las librerías de OpenTelemetry en las aplicaciones Python (`opentelemetry-distro`, `opentelemetry-exporter-otlp`).
-3.  Instrumentar la aplicación FastAPI para que envíe datos al Collector.
