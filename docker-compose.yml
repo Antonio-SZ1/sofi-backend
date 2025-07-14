@@ -1,21 +1,23 @@
+version: '3.8'
+
 services:
   #--- Base de datos relacional ---
   postgres-primary:
     image: postgres:15
     container_name: postgres-primary
     hostname: postgres-primary
-    user: "${UID}:${GID}"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      # Montamos toda la carpeta. El entrypoint de Postgres ejecutará los .sql y .sh
+      # Montamos la carpeta para scripts de inicialización del primary (ej. schema.sql).
+      # ¡Asegúrate de que '99-replication.sh' y 'init-db.sh' NO estén en 'postgres-init' ahora!
       - ./postgres-init:/docker-entrypoint-initdb.d
-      - ./pgdata/primary:/var/lib/postgresql/data
+      # Usamos un volumen nombrado de Docker para los datos del primary
+      - postgres_primary_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    # El comando ahora es simple, solo los argumentos para el servidor
     command: postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -28,7 +30,6 @@ services:
   postgres-replica:
     image: postgres:15
     container_name: postgres-replica
-    user: "${UID}:${GID}"
     depends_on:
       postgres-primary:
         condition: service_healthy
@@ -38,9 +39,13 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - ./pgdata/replica:/var/lib/postgresql/data
-      - ./postgres-init/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-    command: ["/docker-entrypoint-initdb.d/init-db.sh"]
+      # Usamos un volumen nombrado de Docker para los datos de la réplica
+      - postgres_replica_data:/var/lib/postgresql/data
+      # ¡IMPORTANTE! Montamos la nueva carpeta con los scripts de configuración de la réplica
+      - ./postgres-replica-config:/docker-entrypoint-initdb.d
+    # El comando ahora ejecutará los scripts dentro de /docker-entrypoint-initdb.d
+    # que ahora solo contiene los scripts de réplica.
+    command: ["/docker-entrypoint-initdb.d/init-db.sh"] # O si 99-replication.sh es el principal, ajusta aquí
     networks:
       - sofipo-net
 
@@ -80,8 +85,12 @@ services:
     environment:
       COUCHDB_USER: ${COUCHDB_USER}
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+      COUCHDB_ADMIN_PASSWORD: ${COUCHDB_PASSWORD}
     volumes:
       - couchdb-data:/opt/couchdb/data
+      - ./couchdb-init/setup-users-db.sh:/opt/couchdb/setup-users-db.sh
+    # ¡IMPORTANTE! Usar el entrypoint real de la imagen de CouchDB y luego ejecutar nuestro script
+    entrypoint: ["/bin/bash", "-c", "/opt/couchdb/bin/docker-entrypoint.sh /opt/couchdb/setup-users-db.sh"]
     networks:
       - sofipo-net
 
@@ -113,7 +122,10 @@ services:
     networks:
       - sofipo-net
 
+# Definición de volúmenes nombrados
 volumes:
+  postgres_primary_data:
+  postgres_replica_data:
   rabbitmq-data:
   redis-data:
   couchdb-data:
