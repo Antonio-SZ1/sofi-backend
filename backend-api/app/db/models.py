@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, Numeric, ForeignKey, TIMESTAMPTZ, UUID, Integer
+from sqlalchemy import Column, String, Numeric, ForeignKey, UUID, Integer # TIMESTAMPTZ eliminado de aquí
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
 import uuid
+from sqlalchemy.dialects.postgresql import TIMESTAMPTZ
 
 class Client(Base):
     __tablename__ = "clients"
