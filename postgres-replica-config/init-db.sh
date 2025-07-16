@@ -35,8 +35,8 @@ fi
 
 unset PGPASSWORD
 
-# 4. Iniciar PostgreSQL como réplica (¡CAMBIO CLAVE AQUÍ!)
-echo "Cambiando a usuario 'postgres' e iniciando PostgreSQL como réplica..."
-# Usamos 'su - postgres -c' para ejecutar el comando 'postgres' como el usuario 'postgres'.
-# ¡Especificamos la ruta completa al binario 'postgres'!
-exec su - postgres -c "/usr/local/bin/postgres"
+# 4. Iniciar PostgreSQL como réplica (¡CAMBIO CLAVE AQUÍ - Llamando al entrypoint original!)
+echo "Llamando al entrypoint original de PostgreSQL para iniciar el servidor como réplica..."
+# El entrypoint original se encargará de ejecutar 'postgres' con el usuario correcto.
+# Le pasamos los argumentos necesarios para que se inicie como réplica.
+exec /usr/local/bin/docker-entrypoint.sh postgres -c hot_standby=on -c hot_standby_feedback=on

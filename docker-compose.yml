@@ -1,5 +1,3 @@
-# Advertencia: El atributo 'version' es obsoleto y será ignorado.
-# Puedes eliminar esta línea para evitar la advertencia.
 version: '3.8'
 
 services:
@@ -12,18 +10,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Pasamos las variables de usuario de replicación al primario
-      # para que el script 00-config-hba.sh pueda usarlas.
       POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER}
       POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD}
     volumes:
-      # Montamos la carpeta para scripts de inicialización del primary
-      # (incluye schema.sql y 00-config-hba.sh para configurar pg_hba.conf).
       - ./postgres-init:/docker-entrypoint-initdb.d
-      # Usamos un volumen nombrado de Docker para los datos persistentes del primary.
       - postgres_primary_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432" # Puerto expuesto para el acceso externo
+      - "5432:5432" 
     command: postgres -c wal_level=replica -c hot_standby=on -c max_wal_senders=10 -c max_replication_slots=10 -c hot_standby_feedback=on
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -39,24 +32,20 @@ services:
     container_name: postgres-replica
     depends_on:
       postgres-primary:
-        condition: service_healthy # Espera a que el primario esté completamente listo y saludable
+        condition: service_healthy 
     environment:
-      POSTGRES_USER: ${POSTGRES_USER} # Usuario de la aplicación para la réplica
+      POSTGRES_USER: ${POSTGRES_USER} 
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER} # Usuario de replicación
+      POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER}
       POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD}
-      # ¡CRUCIAL! PGPASSWORD es necesario para que pg_basebackup y psql no pidan contraseña interactivamente.
       PGPASSWORD: ${POSTGRES_REPLICA_PASSWORD}
     ports:
-      - "5433:5432" # Puerto expuesto para la réplica (diferente al primario)
+      - "5433:5432"
     volumes:
-      # Usamos un volumen nombrado de Docker para los datos persistentes de la réplica.
       - postgres_replica_data:/var/lib/postgresql/data
-      # Montamos la carpeta con los scripts de inicialización de la réplica (init-db.sh).
       - ./postgres-replica-config:/docker-entrypoint-initdb.d
-    # El comando ejecuta el script de inicialización de la réplica.
     command: ["/docker-entrypoint-initdb.d/init-db.sh"]
-    healthcheck: # Healthcheck para la réplica
+    healthcheck: 
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p 5432"]
       interval: 5s
       timeout: 3s
@@ -66,29 +55,29 @@ services:
 
   #--- Servicio de mensajería (RabbitMQ) ---
   rabbitmq:
-    image: rabbitmq:3.11-management # Imagen con la interfaz de gestión web
+    image: rabbitmq:3.11-management 
     container_name: rabbitmq
     hostname: rabbitmq
     ports:
-      - "5672:5672" # Puerto AMQP para clientes
-      - "15672:15672" # Puerto para la interfaz de gestión web
+      - "5672:5672" 
+      - "15672:15672" 
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq/ # Volumen para datos persistentes de RabbitMQ
+      - rabbitmq-data:/var/lib/rabbitmq/ 
     networks:
       - sofipo-net
 
   #--- Servicio de caché (Redis) ---
   redis:
-    image: redis:7-alpine # Imagen ligera de Redis
+    image: redis:7-alpine 
     container_name: redis
     hostname: redis
     ports:
-      - "6379:6379" # Puerto por defecto de Redis
+      - "6379:6379" 
     volumes:
-      - redis-data:/data # Volumen para datos persistentes de Redis
+      - redis-data:/data 
     networks:
       - sofipo-net
 
@@ -98,63 +87,59 @@ services:
     container_name: couchdb
     hostname: couchdb
     ports:
-      - "5984:5984" # Puerto por defecto de CouchDB
+      - "5984:5984" 
     environment:
-      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_USER: ${COUCHDB_USER} 
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
-      COUCHDB_ADMIN_PASSWORD: ${COUCHDB_PASSWORD} # Necesario para que el script de inicialización se autentique
+      COUCHDB_ADMIN_PASSWORD: ${COUCHDB_PASSWORD}
     volumes:
-      - couchdb-data:/opt/couchdb/data # Volumen para datos persistentes de CouchDB
-      # Montamos el script de inicialización en una ubicación en el PATH del contenedor.
-      - ./couchdb-init/setup-users-db.sh:/usr/local/bin/setup-users-db.sh
-    # El comando ejecuta el script de inicialización.
-    command: /bin/bash -c "setup-users-db.sh"
-    healthcheck: # Healthcheck ajustado para dar más tiempo a CouchDB
+      - couchdb-data:/opt/couchdb/data 
+    healthcheck: 
       test: ["CMD-SHELL", "curl -f http://localhost:5984 || exit 1"]
-      interval: 10s   # Chequea cada 10 segundos
-      timeout: 10s    # Espera hasta 10 segundos por una respuesta
-      retries: 10     # Intenta 10 veces antes de marcar como unhealthy (total 100s)
-      start_period: 30s # Espera 30 segundos antes de empezar a chequear
+      interval: 10s  
+      timeout: 10s   
+      retries: 10    
+      start_period: 30s 
     networks:
       - sofipo-net
 
   #--- Aplicación Backend API ---
   backend-api:
-    build: ./backend-api # Construye la imagen desde el Dockerfile en ./backend-api
+    build: ./backend-api 
     container_name: backend-api
     hostname: backend-api
-    env_file: .env # Carga variables de entorno desde el archivo .env
+    env_file: .env 
     ports:
-      - "8000:8000" # Puerto de la API expuesto
-    depends_on: # Define las dependencias de servicio
+      - "8000:8000" 
+    depends_on: 
       postgres-primary:
-        condition: service_healthy # Espera a que el primario esté saludable
+        condition: service_healthy 
       postgres-replica:
-        condition: service_healthy # Espera a que la réplica esté saludable
+        condition: service_healthy 
       rabbitmq:
-        condition: service_started # Espera a que RabbitMQ inicie
+        condition: service_started 
       redis:
-        condition: service_started # Espera a que Redis inicie
+        condition: service_started
       couchdb:
-        condition: service_healthy # Espera a que CouchDB esté saludable
+        condition: service_healthy 
     networks:
       - sofipo-net
 
   #--- Aplicación Event Consumer ---
   event-consumer:
-    build: ./event-consumer # Construye la imagen desde el Dockerfile en ./event-consumer
+    build: ./event-consumer 
     container_name: event-consumer
     hostname: event-consumer
-    env_file: .env # Carga variables de entorno desde el archivo .env
-    depends_on: # Define las dependencias de servicio
+    env_file: .env 
+    depends_on: 
       rabbitmq:
-        condition: service_started # Espera a que RabbitMQ inicie
+        condition: service_started 
       couchdb:
-        condition: service_healthy # Espera a que CouchDB esté saludable
+        condition: service_healthy 
     networks:
       - sofipo-net
 
-# Definición de volúmenes nombrados (gestionados por Docker para persistencia de datos)
+# Definición de volúmenes nombrados 
 volumes:
   postgres_primary_data:
   postgres_replica_data:
