@@ -1,6 +1,6 @@
 # Mini Sistema SOFIPO - Backend
 
-Este proyecto es una implementación de un backend SOFIPO, siguiendo los requisitos de una Práctica Integral.
+Este proyecto es una implementación de un backend SOFIPO, siguiendo los requisitos de una practica Integral.
 
 ## Tecnologías Utilizadas
 
@@ -19,7 +19,7 @@ Este proyecto es una implementación de un backend SOFIPO, siguiendo los requisi
 - `event-consumer`: Un servicio que escucha eventos de RabbitMQ y los almacena en CouchDB.
 - `postgres-init`: Scripts para la inicialización y replicación de PostgreSQL.
 - `docker-compose.yml`: Archivo orquestador de toda la infraestructura.
-- `.env`: Archivo para variables de entorno (debes crearlo a partir de `.env.example`).
+- `.env`: Archivo para variables de entorno.
 
 ## Despliegue
 
@@ -31,25 +31,25 @@ Este proyecto es una implementación de un backend SOFIPO, siguiendo los requisi
 
 1.  **Clona el repositorio:**
     ```bash
-    git clone <URL_DEL_REPOSITORIO>
-    cd sofipo-backend
+    git clone git@github.com:Antonio-SZ1/sofi-backend.git
+    cd sofi-backend
     ```
 
-2.  **Crea el archivo de entorno:**
-    Copia el contenido del archivo `.env` proporcionado en la guía y guárdalo en la raíz del proyecto.
-
-3.  **Haz ejecutable el script de la réplica:**
+2.  **Haz ejecutable el script inicial y el de la réplica:**
     ```bash
-    chmod +x postgres-init/init-db.sh
+    chmod +x postgres-init/00-config-hba.sh
+    chmod +x postgres-replica-config/init-db.sh
+    chmod +x couchdb-init/setup-users-db.sh
+
     ```
 
-4.  **Levanta todo el stack con Docker Compose:**
+3.  **Levanta todo el stack con Docker Compose:**
     ```bash
     docker compose up --build -d
     ```
-    El comando `--build` fuerza la reconstrucción de las imágenes de tus aplicaciones. La `-d` lo ejecuta en modo detached (segundo plano).
+    
 
-5.  **Verifica que todo esté corriendo:**
+4.  **Verifica que todo esté corriendo:**
     ```bash
     docker-compose ps
     ```
@@ -57,7 +57,7 @@ Este proyecto es una implementación de un backend SOFIPO, siguiendo los requisi
 
 ## Uso de la API
 
-La API estará disponible en `http://localhost:8000`. La documentación interactiva (Swagger UI) está en `http://localhost:8000/docs`.
+La API estará disponible en `http://localhost:8000`. La documentación interactiva está en `http://localhost:8000/docs`.
 
 ### 1. Obtener un Token de Autenticación
 
@@ -81,14 +81,14 @@ Copia el valor de `access_token` para las siguientes peticiones.
 ### 2. Crear un Cliente (Endpoint Protegido)
 
 ```bash
-export TOKEN="TU_ACCESS_TOKEN_AQUI"
+export TOKEN="Tu token de acceso"
 
 curl -X POST "http://localhost:8000/api/v1/clients/" \
 -H "Authorization: Bearer $TOKEN" \
 -H "Content-Type: application/json" \
 -d '{
-  "full_name": "Juan Perez",
-  "email": "juan.perez@example.com",
+  "full_name": "Carlos Perez",
+  "email": "carlos.perez@example.com",
   "rfc": "PEPJ800101HNE"
 }'
 ```
@@ -98,14 +98,14 @@ curl -X POST "http://localhost:8000/api/v1/clients/" \
 ```bash
 curl -X GET "http://localhost:8000/api/v1/clients/PEPJ800101HNE"
 ```
-La primera vez, tardará un poco más (consulta a la BD réplica). Las siguientes peticiones serán casi instantáneas (servidas desde Redis).
+La primera vez, tardará un poco más . Las siguientes peticiones serán casi instantáneas (servidas desde Redis).
 
 ### 4. Crear un Préstamo (Endpoint Protegido)
 
 Primero, obtén el `id` del cliente que creaste.
 
 ```bash
-export CLIENT_ID="ID_DEL_CLIENTE_OBTENIDO"
+export CLIENT_ID="ID del cliente"
 
 curl -X POST "http://localhost:8000/api/v1/loans/" \
 -H "Authorization: Bearer $TOKEN" \
@@ -123,7 +123,7 @@ curl -X POST "http://localhost:8000/api/v1/loans/" \
 Obtén el `id` del préstamo.
 
 ```bash
-export LOAN_ID="ID_DEL_PRESTAMO_OBTENIDO"
+export LOAN_ID="ID del prestamo"
 
 curl -X POST "http://localhost:8000/api/v1/loans/$LOAN_ID/payments" \
 -H "Authorization: Bearer $TOKEN" \

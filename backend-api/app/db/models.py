@@ -4,7 +4,6 @@ from sqlalchemy.sql import func
 from app.db.database import Base
 import uuid
 
-
 class Client(Base):
     __tablename__ = "clients"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

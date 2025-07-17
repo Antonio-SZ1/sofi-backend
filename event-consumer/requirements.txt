@@ -1,3 +1,4 @@
 pika
 couchdb
 python-dotenv
+python-multipart
